@@ -1,12 +1,14 @@
 package com.subtitles.repository;
 
-import java.io.File;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
 import com.subtitles.domain.Language;
 import com.subtitles.domain.Movie;
 
 public interface SubtitlesDataBase {
 	
-	File searchForMovieAndLanguage(Movie movie, Language language);
+	Map<Movie,List<String>> searchForMovieAndLanguage(List<Path> paths, Language language);
 
 }

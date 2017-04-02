@@ -1,13 +1,13 @@
 package com.subtitles.repository.opensubtitles;
 
-import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
@@ -17,6 +17,9 @@ import com.subtitles.domain.Movie;
 
 public class XmlRcpClient {
 
+	private Logger LOGGER = Logger.getLogger(XmlRcpClient.class.getName());
+	private static XmlRcpClient client;
+	
 	private static String USERNAME = "elizeire@gmail.com";
 	private static String PASSWORD = "Sbt#2017";
 	private static String LANGUAGE = "pob";
@@ -24,18 +27,18 @@ public class XmlRcpClient {
 	private static String URL_SERVER = "http://api.opensubtitles.org/xml-rpc";
 	private String token;
 
-	public static void main(String[] args) {
-		XmlRcpClient client = new XmlRcpClient();
-		// client.testClient();
-		// client.login(USERNAME, PASSWORD, LANGUAGE, USERAGENT);
-		List<Movie> movies = new ArrayList<Movie>();
-		Movie movie = new Movie();
-		Path path = new File("/home/elizeire/Videos/videos.avi").toPath();
-		movie.setPath(path);
-		movies.add(movie);
-		client.searchSubtitles(movies);
+	
+	private XmlRcpClient(){
+	}
+	
+	public static XmlRcpClient getInstance(){
+		if(client == null){
+			client = new XmlRcpClient();
+		}
+		return client;
 	}
 
+	@SuppressWarnings("rawtypes")
 	public void testClient() {
 		XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
 		try {
@@ -43,17 +46,13 @@ public class XmlRcpClient {
 			XmlRpcClient client = new XmlRpcClient();
 			client.setConfig(config);
 			Object[] params = new Object[] {};
-			HashMap resultMap = (HashMap) client.execute("ServerInfo", params);
+			Map resultMap = (HashMap) client.execute("ServerInfo", params);
 			for (Object key : resultMap.keySet()) {
 				System.out.printf("%s ::", key);
 				System.out.println(resultMap.get(key));
 			}
-		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (XmlRpcException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		} catch (XmlRpcException  | MalformedURLException e) {
+			LOGGER.log(Level.SEVERE, e.getMessage(), e);
 		}
 	}
 
@@ -67,6 +66,7 @@ public class XmlRcpClient {
 			XmlRpcClient client = new XmlRpcClient();
 			client.setConfig(config);
 			Object[] params = new Object[] { username, password, language, userAgent };
+			@SuppressWarnings("unchecked")
 			Map<String, Object> resultMap = (HashMap<String, Object>) client.execute("LogIn", params);
 			for (Object key : resultMap.keySet()) {
 				if ("token".equalsIgnoreCase(key.toString())) {
@@ -74,24 +74,18 @@ public class XmlRcpClient {
 					System.out.println("token::" + token);
 				}
 			}
-		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (XmlRpcException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		} catch (XmlRpcException  | MalformedURLException e) {
+			LOGGER.log(Level.SEVERE, e.getMessage(), e);
 		}
 
 		return token;
 	}
 
-	// array SearchSubtitles( $token, array(array('sublanguageid' =>
-	// $sublanguageid, 'moviehash' => $moviehash, 'moviebytesize' => $moviesize,
-	// imdbid => $imdbid, query => 'movie name', "season" => 'season number',
-	// "episode" => 'episode number', 'tag' => tag ),array(...)), array('limit'
-	// => 500))
-	public String searchSubtitles(List<Movie> movies) {
-
+	//TODO get subtitles id and dowload them, needs refactor
+	@SuppressWarnings("unchecked")
+	public Map<Movie,List<String>> searchSubtitles(List<Movie> movies, LanguageCodes lang) {
+		
+		Map<Movie,List<String>> mapSubs = new HashMap<Movie,List<String>>();
 
 		XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
 		try {
@@ -100,22 +94,12 @@ public class XmlRcpClient {
 			client.setConfig(config);
 			Map<String, String> mapParams = new HashMap<String, String>();
 			for (Movie movie : movies) {
-				
-				
-				mapParams.put("sublanguageid", this.LANGUAGE);
-//				mapParams.put("moviehash", movie.getMoviehash());
-//				mapParams.put("moviebytesize", ""); // TODO
-//				mapParams.put("imdbid", "");
-				mapParams.put("query", "Star Wars Return of Jedi");
-//				mapParams.put("season", "");
-//				mapParams.put("episode", "");
-//				mapParams.put("tag", "");
-//
+				mapParams.put("sublanguageid", lang.getCodISO639());
+				mapParams.put("moviehash", OpenSubtitlesHasher.computeHash(movie.getPath().toFile()));
 			}
 			Object[] videoParams = {mapParams};
 			Object[] params = new Object[] { getToken(), videoParams };
 
-			@SuppressWarnings("unchecked")
 			Map<String, Object> map = (Map<String, Object>) client.execute("SearchSubtitles", params);
 			
 			for (String key : map.keySet()) {
@@ -126,24 +110,19 @@ public class XmlRcpClient {
 							(Object[]) map.get(key);
 					
 					for (int x = 0 ; x < data.length; x++) {
-						Map subtitleInfo = (HashMap<String,String>) data[x];
+						Map<String,String> subtitleInfo = (HashMap<String,String>) data[x];
 						
-						System.out.printf("%s :: ",subtitleInfo.get("MovieReleaseName"));
-						//System.out.println(subtitleInfo.get("ZipDownloadLink"));
-						System.out.println(subtitleInfo.get("idsubtitlefile"));
+						LOGGER.log(Level.INFO, subtitleInfo.get("MovieReleaseName").toString());
+						LOGGER.log(Level.INFO, subtitleInfo.get("idsubtitlefile").toString());
+						//mapSubs.put(movie, subtitleInfo.get("ZipDownloadLink").toString());
 					}
 				}
 			}
 			
-		} catch (XmlRpcException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		} catch (XmlRpcException  | IOException e) {
+			LOGGER.log(Level.SEVERE, e.getMessage(), e);
 		}
-
-		return token;
+		return mapSubs;
 	}
 
 	public String getToken() {

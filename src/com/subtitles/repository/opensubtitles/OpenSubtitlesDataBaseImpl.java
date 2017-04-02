@@ -1,14 +1,16 @@
 package com.subtitles.repository.opensubtitles;
 
-import java.io.File;
-import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import com.subtitles.domain.Language;
 import com.subtitles.domain.Movie;
 import com.subtitles.repository.SubtitlesDataBase;
 
 public class OpenSubtitlesDataBaseImpl implements SubtitlesDataBase {
-
+	
 	private static OpenSubtitlesDataBaseImpl singleton;
 
 	private OpenSubtitlesDataBaseImpl() {
@@ -23,20 +25,17 @@ public class OpenSubtitlesDataBaseImpl implements SubtitlesDataBase {
 	}
 
 	@Override
-	public File searchForMovieAndLanguage(Movie movie, Language language) {
+	public Map<Movie, List<String>> searchForMovieAndLanguage(List<Path> paths, Language language) {
 
 		LanguageCodes openSubtitlesLanguage = LanguageCodes.valueOf(language.name());
-		System.out.printf("OpenSubtitlesDataBaseImpl :: searchForMovieAndLanguage %s %s \n", movie.getPath().getFileName(),
-				openSubtitlesLanguage.getCodISO639());
+		List<Movie> movies = new ArrayList<Movie>();
+
+		paths.forEach(path->movies.add(new Movie(path)));
 		
-		try {
-			String hash = OpenSubtitlesHasher.computeHash(movie.getPath().toFile());
-			System.out.println(hash);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return null;
+		XmlRcpClient client = XmlRcpClient.getInstance();
+		Map<Movie,List<String>> mapSubs  = client.searchSubtitles(movies, openSubtitlesLanguage);
+		
+		return mapSubs;
 	}
 
 }

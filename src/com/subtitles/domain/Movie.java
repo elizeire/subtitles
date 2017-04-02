@@ -1,18 +1,25 @@
 package com.subtitles.domain;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
-
-import com.subtitles.repository.opensubtitles.OpenSubtitlesHasher;
+import java.util.List;
 
 public class Movie {
 	
-	String title;
-	String filename;
-	String imdbId;
-	Path path;
-	String moviehash;
+	private String title;
+	private String filename;
+	private String imdbId;
+	private Path path;
+	private List<Subtitle> subtitles;
+	
+	
+	
+	public Movie() {
+		super();
+	}
+	public Movie(Path path) {
+		this.path = path;
+	}
+
 	
 	public String getTitle() {
 		return title;
@@ -38,17 +45,11 @@ public class Movie {
 	public void setPath(Path path) {
 		this.path = path;
 	}
-	public String getMoviehash() {
-		if(moviehash == null && path != null){
-			try {
-				this.moviehash = OpenSubtitlesHasher.computeHash(path.toFile());
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return moviehash;
+	public List<Subtitle> getSubtitles() {
+		return subtitles;
 	}
-
+	public void setSubtitles(List<Subtitle> subtitles) {
+		this.subtitles = subtitles;
+	}
 
 }
